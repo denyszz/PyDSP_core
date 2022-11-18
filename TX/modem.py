@@ -3,7 +3,7 @@
 Mathuranathan Viswanathan
 
 Alterei algumas coisas para bater certo com o matlab,
-mas o codigo nao está muito efeciente.
+mas o codigo nao está muito efeciente
 """
 import numpy as np
 import abc
