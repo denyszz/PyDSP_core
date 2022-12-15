@@ -44,8 +44,8 @@ def symDemapper(Srx,Stx,C,DEMAPPER=None):
     if normMethod == 'avgPower':
         c = np.sqrt(np.mean(abs(Srx)**2, axis=1) / np.mean(abs(Stx)**2, axis = 1))
     elif normMethod == 'MMSE':
+        c = np.zeros(nPol)
         for n in range(0,nPol):
-            c = np.zeros(nPol)
             fun = lambda h: np.vdot((h*Stx[n,:]-Srx[n,:]), (np.transpose((h*Stx[n,:]-Srx[n,:])))) #USAR 'np.vdot', e nao 'np.dot'!!!
             c[n]=sciopt.fmin(func = fun, x0 = 1)
     else:
@@ -68,11 +68,13 @@ def symDemapper(Srx,Stx,C,DEMAPPER=None):
 
     # Calculate LLRs
     if calc_LLR:
+        LLRs = np.array([])
         for n in range(0,nPol):
-            LLRs = np.empty((0,nPol))
             # Calculate Symbol Probability:
             symProb = np.histogram(txSyms[n,:], bins=np.arange(-0.5,(M+1)-0.5,1), density=True)[0]
-            LLRs = np.concatenate((LLRs, LLR_eval(Srx[n,:], N0[n], C[:,n], symProb)))
+            #LLRs = np.concatenate((LLRs, LLR_eval(Srx[n,:], N0[n], C[:,n], symProb)))
+            LLR_tmp = LLR_eval(Srx[n,:], N0[n], C[:,n], symProb)
+            LLRs=np.hstack([LLRs, LLR_tmp]) if LLRs.size else LLR_tmp
 
     # Transmitted and Received Bits
     # Nao esta implementada descodificaçao diferencial
