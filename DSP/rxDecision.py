@@ -20,12 +20,12 @@ def BER_eval(txBits, rxBits, BER_sym_eval=None, M=None):
     return BER, errPos
 
 
-def MI_eval(Srx, Stx, C, N0, symProb=None):
+def MI_eval(Srx,Stx,C,N0,symProb=None):
     if symProb == None:
-        symProb = np.matlib.repmat(1 / len(C), len(C), 1)
-    qYonX = np.exp((-np.abs(Srx - Stx) ** 2) / N0)
-    qY = np.dot(
-        np.sum(np.matlib.repmat(symProb, 1, len(Srx)), np.exp((-np.abs(np.subtract(Srx, np.vstack(C))) ** 2) / N0)))
-    MI = np.mean(np.log2(np.maximum(qYonX, np.spacing(1)) / np.maximum(qY, np.spacing(1))))
+        symProb = np.matlib.repmat(1/len(C), len(C),1)
+
+    qYonX = np.exp((-np.abs(Srx-Stx)**2)/N0)
+    qY = np.sum(np.matlib.repmat(symProb,1, len(Srx)) * np.exp((-np.abs(Srx-np.vstack(C))**2)/N0),0)
+    MI = np.mean(np.log2(np.maximum(qYonX, np.spacing(1))/np.maximum(qY, np.spacing(1))))
 
     return MI
