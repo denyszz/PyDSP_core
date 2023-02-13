@@ -1,5 +1,8 @@
 from numpy.fft import fft, ifft, fftshift
 import numpy as np
+import decimal
+
+from PyDSP_core.TX.pulseShaper import rcosdesign
 
 def LPF_apply(S,LPF,Fs,Rs):
     # Input Parser
@@ -21,6 +24,35 @@ def LPF_apply(S,LPF,Fs,Rs):
 
         for n in range(0,nPol):
             S[n,:] = ifft(fftshift(TF) * fft(S[n,:]))
+
+    elif LPF['type'] == 'RRC' or LPF['type'] == 'root-raised-cosine':
+        nSpS_in = Fs/Rs
+        nSpS = int(decimal.Decimal(nSpS_in).quantize(decimal.Decimal('1'), rounding=decimal.ROUND_HALF_UP))
+        # Resample nao implementado
+        if 'nTaps' in LPF:
+            nTaps = LPF['nTaps']
+        else:
+            nTaps = 64 * nSpS
+        if 'implementation' in LPF:
+            implementation = LPF['implementation']
+        else:
+            implementation = 'FFT'
+        W = rcosdesign(LPF['rollOff'], nTaps/nSpS, nSpS, 'sqrt')
+        W = W/sum(W)
+
+        if implementation == 'FFT':
+            nSamples = np.size(S,1)
+            zeroEnd = False
+            if np.remainder(nSamples,2):
+                S = np.concatenate((S, np.zeros((nPol,1))))
+                nSamples = nSamples + 1
+                zeroEnd = True
+            W_f = np.concatenate((np.zeros(int((nSamples-nTaps)/2)), W, np.zeros(int((nSamples-nTaps)/2-1))))
+
+            if implementation == 'FFT':
+                for n in range(0,nPol):
+                    S[n,:] = fftshift(ifft(fft(S[n,:]) * fft(W_f)))
+            TF = fft(W)
 
     return S, LPF
 
