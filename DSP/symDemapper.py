@@ -34,9 +34,10 @@ def symDemapper(Srx,Stx,C,DEMAPPER=None):
         if np.size(C_u) != np.size(Stx_u):
             Stx_u = Stx_u[abs(Stx_u) == min(abs(Stx_u))]
             C_u = C_u[abs(C_u) == min(abs(C_u))]
-
+        #print(np.vdot((2*Stx_u-C_u),np.transpose((2*Stx_u-C_u))).real)
+        #print(np.vdot((2*Stx_u-C_u),np.transpose((2*Stx_u-C_u))))
         fun = lambda h: np.vdot((h*Stx_u-C_u),np.transpose((h*Stx_u-C_u)))
-        scaleFactor = sciopt.fmin(func = fun, x0 = 1)
+        scaleFactor = sciopt.fmin(func = fun, x0 = 1, disp=0)
         Stx[n,:] = Stx[n,:] * scaleFactor
 
     txSyms = signal2symbol(Stx,C,[],useGPU)
@@ -46,8 +47,9 @@ def symDemapper(Srx,Stx,C,DEMAPPER=None):
     elif normMethod == 'MMSE':
         c = np.zeros(nPol)
         for n in range(0,nPol):
+            #print(np.vdot((2*Stx[n,:]-Srx[n,:]), (np.transpose((2*Stx[n,:]-Srx[n,:])))))
             fun = lambda h: np.vdot((h*Stx[n,:]-Srx[n,:]), (np.transpose((h*Stx[n,:]-Srx[n,:])))) #USAR 'np.vdot', e nao 'np.dot'!!!
-            c[n]=sciopt.fmin(func = fun, x0 = 1)
+            c[n]=sciopt.fmin(func = fun, x0 = 1, disp=0)
     else:
         c = np.ones(nPol)
 
@@ -161,7 +163,7 @@ def getN0_MMSE(Stx,Srx):
         Stx_copy[n,:] = Stx_copy[n,:]/np.sqrt(np.mean(abs(Stx_copy[n,:])**2))
         Srx_copy[n,:] = Srx_copy[n,:]/np.sqrt(np.mean(abs(Srx_copy[n,:])**2))
         fun = lambda h: np.vdot((h*Stx_copy[n,:]-Srx_copy[n,:]), (np.transpose(h*Stx_copy[n,:]-Srx_copy[n,:])))
-        c[n] = sciopt.fmin(func = fun, x0 = 1, xtol = 1e-6, ftol = 1e-6, maxiter = 1e3) # Por alguma razao difere alguns milésimos do matlab...
+        c[n] = sciopt.fmin(func = fun, x0 = 1, xtol = 1e-6, ftol = 1e-6, maxiter = 1e3, disp=0) # Por alguma razao difere alguns milésimos do matlab...
         N0[n] = (1-(c[n]**2))/(c[n]**2)
 
     return N0, c
