@@ -45,7 +45,7 @@ def Tx_addPilots(Stx,PILOTS,C):
     idx_payload = np.matlib.repmat(idx_payload,nPol,1)
 
     # Generate Pilot Symbols
-    if pilotOption == 'outerQPSK':  # only works for square QAM!!
+    if pilotOption == 'outerQPSK':  # only works for square QAM!
         C_pilot = C[abs(C) == max(abs(C))]
 
     Stx_pilot = C_pilot[np.random.randint(len(C_pilot),size=(nPol, nPilots))]
