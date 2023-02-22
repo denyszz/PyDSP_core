@@ -1,3 +1,4 @@
+from math import sqrt
 import sympy
 import numpy as np
 from PyDSP_core.TX.pulseShaper import rectpulse
@@ -45,8 +46,17 @@ def Tx_addPilots(Stx,PILOTS,C):
     idx_payload = np.matlib.repmat(idx_payload,nPol,1)
 
     # Generate Pilot Symbols
-    if pilotOption == 'outerQPSK':  # only works for square QAM!
+    if pilotOption == 'outerQPSK':
         C_pilot = C[abs(C) == max(abs(C))]
+    if pilotOption == 'innerQPSK':
+        C_pilot = C[abs(C) == min(abs(C))]
+    if pilotOption == 'meanQPSK':
+        C_pilot = C[abs(C) == min(abs(C))]
+        C_pilot = C_pilot * sqrt(meanP) / sqrt(np.mean(abs(C_pilot)**2))
+    if pilotOption == 'customQPSK':
+        C_pilot = C[abs(C) == min(abs(C))]
+        C_pilot = C_pilot * sqrt(meanP) / sqrt(np.mean(abs(C_pilot)**2))
+        C_pilot = C_pilot * PILOTS['scaleFactor']
 
     Stx_pilot = C_pilot[np.random.randint(len(C_pilot),size=(nPol, nPilots))]
 
