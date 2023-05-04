@@ -25,6 +25,12 @@ def LPF_apply(S,LPF,Fs,Rs):
         for n in range(0,nPol):
             S[n,:] = ifft(fftshift(TF) * fft(S[n,:]))
 
+    elif LPF['type'] == 'Gaussian':
+        TF = superGaussian_TF(fc,LPF['order'],LPF['f0'],Fs,nSamples)[0]
+
+        for n in range(0,nPol):
+            S[n,:] = ifft(fftshift(TF) * fft(S[n,:]))
+
     elif LPF['type'] == 'RRC' or LPF['type'] == 'root-raised-cosine':
         nSpS_in = Fs/Rs
         nSpS = int(decimal.Decimal(nSpS_in).quantize(decimal.Decimal('1'), rounding=decimal.ROUND_HALF_UP))
@@ -67,3 +73,15 @@ def RC_transferFunction(f,Rs,a):
     TF[decayBand] = 0.5*(1+np.cos(np.pi/(a*Rs)*(abs(f[decayBand])-(1-a)*Rs/2)))
 
     return TF
+
+def superGaussian_TF(fc,order,f0,Fs,nSamples):
+    # Input Parameters
+    BW = np.floor(fc*nSamples/Fs)
+    f0 = f0/Fs*nSamples
+    f = np.linspace(-nSamples/2,nSamples/2,num=nSamples)
+    fn = (f-f0)/BW
+
+    # Generate Super-Gaussian Transfer Function
+    TF = np.exp(-np.log(np.sqrt(2))*fn**(2*order))
+
+    return TF,fn
