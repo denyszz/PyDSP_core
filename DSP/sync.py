@@ -1,6 +1,7 @@
 import numpy as np
 import sympy
 from scipy import signal
+from PyDSP_core.TX.pulseShaper import rectpulse
 
 def pilotSymbols_rmv(Srx,Stx,PIL_rate,PIL_syms):
     # Input Parameters
@@ -46,6 +47,15 @@ def pilotSymbols_rmv(Srx,Stx,PIL_rate,PIL_syms):
         Srx_out[n,:] = Srx[n,np.setdiff1d(np.arange(0,nSamples), pilot_idx[n][0])]
 
     return Srx_out,Stx_out,Srx_PIL,Stx_PIL,pilot_idx,SYNC
+
+def SC_syncTxRx(Srx,Stx,nSpS,SYNC):
+    ## Synchronize Stx and Srx
+    Stx,SYNC = syncSignals_NxN(Srx[:,::int(nSpS)],Stx,SYNC)
+
+    ## Adjust Sampling Rate of Stx
+    Stx = rectpulse(Stx,int(nSpS))
+
+    return Stx,SYNC
 
 def syncSignals_NxN(RX,TX,SYNC={}):
     # Input Parser
