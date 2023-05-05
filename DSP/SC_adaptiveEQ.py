@@ -11,7 +11,7 @@ class Error(Exception):
         self.msg = msg
     def __str__(self):
         return self.msg
-##############################
+###########################################
 
 #############################################################################
 def SC_adaptiveEQ(Srx,Stx,nSpS,MIMO):
@@ -112,6 +112,8 @@ def rmvEdgeSamplesFIR(S,FIR,nSpS):
 def MIMO_NxN(Srx,Stx,MIMO):
     if MIMO['method'] == 'LMS':
         MIMO_method = 'LMS'
+    elif MIMO['method'] == 'CMA':
+        MIMO_method = 'CMA'
     if 'saveTaps_overTime' not in MIMO:
         MIMO['saveTaps_overTime'] = False
     if 'saveTaps_upRate' not in MIMO:
@@ -133,10 +135,19 @@ def MIMO_NxN(Srx,Stx,MIMO):
     nTapsCPE = MIMO['nTapsCPE']
     updateRule = MIMO['current']['updateRule']
     constrained = False
+    if updateRule == 'RDE' and 'constrained' in MIMO['current']:
+        constrained = MIMO['current']['constrained']
     DEBUG = MIMO['current']['DEBUG']
 
     #Set Reference Signal and Constellation
-    if MIMO_method == 'LMS':
+    if MIMO_method == 'CMA':
+        if updateRule =='DA':
+            F = abs(Stx)**2
+            C = np.NaN
+        elif updateRule =='RDE':
+            F = np.NaN
+            C = np.reshape(MIMO['current']['radius'],(1,MIMO['current']['radius'].size))[0]
+    elif MIMO_method == 'LMS':
         if updateRule =='DA':
             F = Stx
             C = np.NaN
@@ -149,6 +160,10 @@ def MIMO_NxN(Srx,Stx,MIMO):
         W = MIMO['W']
     else:
         W = np.zeros((N*nTaps,N), dtype= 'complex_')
+        if MIMO_method == 'CMA' or updateRule == 'DD':
+            n = int(np.floor(nTaps/2)+1)
+            for k in range(0,N):
+                W[(n-1)+(k)*nTaps,k] = 1
 
     # Set mask for filter taps:
     W_mask = np.ones((N*nTaps,N))
@@ -179,15 +194,22 @@ def MIMO_NxN_complex(X,F,C,method,upRule,W,W_mask,W_CPE,
     if W_CPE.size == 0:
         phaseTracker = False
     # Define method:
+    isCMA = False
+    isLMS = False
+    if method == 'CMA':
+        isCMA = True
     if method == 'LMS':
         isLMS = True
     # Define update rule:
     isDA = False
     isDD = False
+    isRDE = False
     if upRule == 'DA':
         isDA = True
     if upRule == 'DD':
         isDD = True
+    if upRule == 'RDE':
+        isRDE = True
     # Check for mask on filter taps
     W_mask_apply = False
     # Initialize variables:
@@ -201,7 +223,7 @@ def MIMO_NxN_complex(X,F,C,method,upRule,W,W_mask,W_CPE,
     aux2 = np.empty((N.astype(int),nSamples.astype(int)),dtype = 'complex_')
     aux[:] = np.nan #variavel auxiliar
 
-    Y = aux 
+    Y = aux ################################## Porquê formar uma array complexo se depois o single() vai eliminar a parte imaginaria?####################################################################################################################
     #print(Y)
     err = aux2
     #print(err)
@@ -221,6 +243,8 @@ def MIMO_NxN_complex(X,F,C,method,upRule,W,W_mask,W_CPE,
     for n in range(int(np.ceil(nTaps/2)), int(nSamples-np.floor(nTaps/2) + 1)):
         #for n in range(51,52):
         for k in range(0,int(N)):
+            #print(U.shape)
+            #print(X.shape)
             U[(k)*nTaps+np.arange(0,(k+1)*nTaps)] = X[k,idx_taps-1]
             #print("lindo")
             #print(U)
@@ -233,7 +257,10 @@ def MIMO_NxN_complex(X,F,C,method,upRule,W,W_mask,W_CPE,
         if np.fmod(n+upOff,upRate) == 0: # Equivalente ao rem() do matlab. Nao confundir com o mod()
             #Format equalized signal:
             thisY = Y[:,n-1]
-            #R = np.single(0)
+            if isCMA:
+                R = abs(thisY)
+            else:
+                R = np.single(0)
 
             #Choose reference signal:
             if isDA:
@@ -243,11 +270,18 @@ def MIMO_NxN_complex(X,F,C,method,upRule,W,W_mask,W_CPE,
                 for k in range(0,int(N)):
                     idx = np.argmin(abs(C - thisY[k]))
                     Fref[k] = C[idx]
+            elif isRDE:
+                #Determine the closest radius:
+                for k in range(0,int(N)):
+                    r = np.argmin(abs(C - R[k]))
+                    Fref[k] = C[r]**2
 
             # Phase Tracker nao entra aqui.
             # Calculate error:
             if isLMS:
                 err[:,n-1] = Fref - thisY
+            elif isCMA:
+                err[:,n-1] = (Fref - R**2) * thisY
 
             # Update MIMO Taps:
             for k in range(0,int(N)):
@@ -337,7 +371,7 @@ def adaptiveEq_inputParser(EQ,Stx,nSpS):
             if 'constrained' not in EQ['train']:
                 EQ['train']['constrained'] = False
             if EQ['train']['updateRule'] == 'RDE' and 'radius' not in EQ['train']:
-                EQ['train']['radius'] = np.unique(abs(Stx[1,:]))
+                EQ['train']['radius'] = np.unique(abs(Stx[0,:]))
 
         #Default number of samples for training stage:
         if 'nSamples' not in EQ['train']:
@@ -363,7 +397,7 @@ def adaptiveEq_inputParser(EQ,Stx,nSpS):
         elif EQ['demux']['updateRule'] in ['DD','decision-directed']:
             EQ['demux']['updateRule'] = 'DD'
         elif EQ['demux']['updateRule'] in ['blind','QPSK','RDE','radius-directed']:
-            EQ['demux ']['updateRule'] = 'RDE'
+            EQ['demux']['updateRule'] = 'RDE'
         else:
             raise Error("Unknown adaptive equalizer update rule")
 
@@ -379,7 +413,9 @@ def adaptiveEq_inputParser(EQ,Stx,nSpS):
             if 'constrained' not in EQ['demux']:
                 EQ['demux']['constrained'] = False
             if EQ['demux']['updateRule'] == 'RDE' and 'radius' not in EQ['demux']:
-                EQ['demux']['radius'] = np.unique(custom_round(abs(Stx[1,:])*(1e3))/(1e3))
+                x1=abs(Stx[0,:])*(1e3)
+                x2=np.vectorize(custom_round)(x1)
+                EQ['demux']['radius'] = np.unique(x2.astype(str).astype(float)/(1e3))
         #Set default pol-demux flag:
         if 'applyPolDemux' not in EQ['demux']:
             EQ['demux']['applyPolDemux'] = True
@@ -405,7 +441,7 @@ def normSignalPower(S,normPower,jointNorm):
     if np.any(normFactor == 0):
         jointNorm = False
     if jointNorm:
-        normFactor = np.matlib.repmat(np.mean(normFactor),1,nSig)[0]
+        normFactor = np.matlib.repmat(np.mean(normFactor),1,nSig)[0] #################ver outravez!!!!
 
     #Normalize Optical Field
     normFactor[normFactor == 0] = 1
