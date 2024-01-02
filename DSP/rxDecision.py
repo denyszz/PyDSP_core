@@ -29,3 +29,46 @@ def MI_eval(Srx,Stx,C,N0,symProb=None):
     MI = np.mean(np.log2(np.maximum(qYonX, np.spacing(1))/np.maximum(qY, np.spacing(1))))
 
     return MI
+
+def GMI_eval(Srx,txBits,C,N0,symProb=0):
+    ### So funciona para uma polarizacao ###
+    #Input Parameters
+    if symProb == 0:
+        symProb = np.matlib.repmat(1/len(C),len(C),1)
+    nSyms = np.size(Srx,1)
+    M = len(C)
+    nBpS = int(np.log2(M))
+    bMap = np.zeros((M, int(np.log2(M))))
+    for n in range (0, M):
+        b = bin(n)[2:].zfill(int(np.log2(M)))
+        bMap[n] = np.fromiter(b, (str,int(np.log2(M))))
+
+    #Evaluate Channel Transition Probability
+    CC = np.exp(-abs(Srx-C)**2/N0)*np.matlib.repmat(symProb,1,len(Srx))
+    B = np.sum(CC,0)
+
+    #Calculate LLRs
+    Z=np.zeros(nSyms)
+    for n in range(0,nBpS):
+        aux1=bMap[:,n]
+        aux2=txBits[0,np.arange(n,n+(nSyms)*nBpS,nBpS)]
+        idx = (aux1[:, np.newaxis] == aux2[np.newaxis, :]).astype(int)
+        Z = Z - np.log2(np.maximum(sum(CC * idx),np.spacing(1)))
+    Z = Z + nBpS*np.log2(B)
+    G = np.mean(Z)
+
+    #Evaluate GMI
+    Hx = entropy_eval(symProb)
+    GMI = Hx - G
+    #Normalized GMI
+    NGMI = 1 - (Hx-GMI)/nBpS
+
+    return GMI,NGMI
+
+def entropy_eval(symProb):
+    symProb = symProb / sum(symProb)
+    tmp = np.log2(symProb)
+    tmp[np.isinf(tmp)] = 0
+    entropy = -sum(symProb*tmp)
+
+    return entropy
